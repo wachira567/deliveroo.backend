@@ -31,9 +31,9 @@ You must set the following environment variables in the Render dashboard under "
 
 ## 4. Python Version
 
-We have included a `.python-version` file specifying `3.10.12`. Render uses this file to determinethe Python version to install.
+Since we are supporting multiple local python versions, we have removed the `.python-version` file to avoid conflicts.
 
-If Render fails to detect the version:
+**You MUST set the Python version manually on Render:**
 1.  Go to your service **Settings** > **Environment**.
 2.  Add a new variable: `PYTHON_VERSION` with value `3.10.12`.
 
