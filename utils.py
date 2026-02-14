@@ -5,27 +5,50 @@ from extensions import mail, db
 from models import Notification
 
 
+
 def get_distance_matrix(origin, destination):
-    """Get distance and duration using Google Maps API"""
-    api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
-    if not api_key:
+    """Get distance and duration using Mapbox Matrix API"""
+    access_token = os.environ.get('MAPBOX_ACCESS_TOKEN')
+    if not access_token:
         return None, None
     
-    url = f"https://maps.googleapis.com/maps/api/distancematrix/json"
+    # Mapbox Matrix API: https://api.mapbox.com/directions-matrix/v1/mapbox/driving/{coordinates}
+    # Coordinates format: lon,lat;lon,lat (semi-colon separated)
+    # Note: Mapbox uses [longitude, latitude], while Google often uses [latitude, longitude]
+    # Input arguments are expected to be (lat, lng) tuples
+    
+    coordinates = f"{origin[1]},{origin[0]};{destination[1]},{destination[0]}"
+    url = f"https://api.mapbox.com/directions-matrix/v1/mapbox/driving/{coordinates}"
+    
     params = {
-        "origins": f"{origin[0]},{origin[1]}",
-        "destinations": f"{destination[0]},{destination[1]}",
-        "key": api_key
+        "access_token": access_token,
+        "annotations": "distance,duration"
     }
     
     try:
         response = requests.get(url, params=params)
         data = response.json()
         
-        if data.get("status") == "OK" and data["rows"][0]["elements"][0]["status"] == "OK":
-            # Use value (meters) for accuracy
-            distance_meters = element["distance"]["value"]
+        if data.get("code") == "Ok" and data.get("distances"):
+            # specific requirement: "Use value (meters) for accuracy"
+            # Mapbox returns matrix: [[0, dist], [dist, 0]]
+            # We want from origin (0) to destination (1)
+            distance_meters = data["distances"][0][1]
+            duration_seconds = data["durations"][0][1]
+            
+            if distance_meters is None:
+                return None, None
+                
             distance_km = distance_meters / 1000.0
+            
+            # Format duration text (e.g., "15 mins")
+            duration_minutes = round(duration_seconds / 60)
+            if duration_minutes >= 60:
+                hours = duration_minutes // 60
+                mins = duration_minutes % 60
+                duration_text = f"{hours} hrs {mins} mins"
+            else:
+                duration_text = f"{duration_minutes} mins"
             
             return distance_km, duration_text
         
@@ -44,28 +67,31 @@ def calculate_delivery_price(distance_km):
     price = distance_km * rate_per_km
     
     # specific requirement: "Lets set the fee at 1ksh per kilometre"
-    return round(price, 2)
+    # Ensure minimum fee of 10 KSH to avoid 0.0 value or too low
+    return max(round(price, 2), 10.00)
 
 
 def get_geocode(address):
-    """Get lat/lng for an address using Google Maps API"""
-    api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
-    if not api_key:
+    """Get lat/lng for an address using Mapbox Geocoding API"""
+    access_token = os.environ.get('MAPBOX_ACCESS_TOKEN')
+    if not access_token:
         return None, None
     
-    url = "https://maps.googleapis.com/maps/api/geocode/json"
+    url = f"https://api.mapbox.com/geocoding/v5/mapbox.places/{address}.json"
     params = {
-        "address": address,
-        "key": api_key
+        "access_token": access_token,
+        "limit": 1
     }
     
     try:
         response = requests.get(url, params=params)
         data = response.json()
         
-        if data.get("status") == "OK" and data["results"]:
-            location = data["results"][0]["geometry"]["location"]
-            return location["lat"], location["lng"]
+        if data.get("features"):
+            # Mapbox returns [lng, lat]
+            center = data["features"][0]["center"]
+            lng, lat = center[0], center[1]
+            return lat, lng
         
         return None, None
     except Exception as e:

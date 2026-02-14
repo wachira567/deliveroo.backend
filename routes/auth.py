@@ -219,55 +219,6 @@ def reset_password():
         return jsonify({"error": "User not found"}), 404
         
 
-# Debug endpoint to force migration (REMOVE IN PRODUCTION)
-@auth_bp.route('/debug/migrate', methods=['GET'])
-def run_migrations():
-    try:
-        from flask_migrate import upgrade
-        from sqlalchemy import text
-        
-        # Check current version
-        try:
-            version = db.session.execute(text("SELECT version_num FROM alembic_version")).scalar()
-        except Exception as e:
-            version = f"Error reading version: {e}"
-            
-        # Run upgrade
-        upgrade()
-        
-        return jsonify({
-            "message": "Migration run successfully",
-            "current_version": version
-        }), 200
-    except Exception as e:
-        import traceback
-        return jsonify({
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }), 500
-
-@auth_bp.route('/debug/verify', methods=['POST'])
-def debug_verify_user():
-    try:
-        data = request.get_json()
-        email = data.get('email')
-        
-        if not email:
-            return jsonify({"error": "Email required"}), 400
-            
-        user = User.query.filter_by(email=email).first()
-        if not user:
-            return jsonify({"error": "User not found"}), 404
-            
-        user.is_verified = True
-        db.session.commit()
-        
-        return jsonify({"message": f"User {email} manually verified"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-
 @auth_bp.route('/me', methods=['GET'])
 @jwt_required()
 def get_current_user():
