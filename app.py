@@ -33,7 +33,18 @@ def create_app(config=None):
     bcrypt.init_app(app)
     jwt.init_app(app)
     mail.init_app(app)
-    CORS(app)
+    # Configure CORS
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "https://deliveroo-frontend-ten.vercel.app"
+            ],
+            "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
+    })
     Migrate(app, db)
     
     # Register blueprints
