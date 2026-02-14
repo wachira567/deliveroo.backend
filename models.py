@@ -143,31 +143,14 @@ class ParcelOrder(db.Model):
 
     @staticmethod
     def calculate_price(weight, distance):
-        """Calculate price based on weight category and distance"""
-        weight_categories = {
-            "small": 50,
-            "medium": 100,
-            "large": 200,
-            "xlarge": 350
-        }
-        
-        if weight <= 1:
-            category = "small"
-        elif weight <= 5:
-            category = "medium"
-        elif weight <= 10:
-            category = "large"
-        else:
-            category = "xlarge"
-        
-        base_price = weight_categories[category]
-        
-        if distance:
-            distance_price = max(0, (distance - 1) * 15)
-        else:
-            distance_price = 0
-        
-        return round(base_price + distance_price, 2)
+        """Calculate price based on distance (1 KSH per km, min 10 KSH)"""
+        # specific requirement: "1ksh per kilometre"
+        # Ensure minimum fee of 10 KSH
+        if not distance:
+            return 10.00
+            
+        price = distance * 1.0
+        return max(round(price, 2), 10.00)
 
     def to_dict(self):
         return {
