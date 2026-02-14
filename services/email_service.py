@@ -86,7 +86,7 @@ def send_order_created_email(user_email, order_details):
         </div>
 
         <p>We will notify you via email when a courier accepts your order.</p>
-        <a href="http://localhost:5173/orders/{order_details['id']}" style="background-color: #f97316; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Track Order</a>
+        <a href="{os.environ.get('FRONTEND_URL', 'http://localhost:5173')}/orders/{order_details['id']}" style="background-color: #f97316; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Track Order</a>
     </div>
     """
     return send_email(user_email, subject, html_content)

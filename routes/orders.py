@@ -138,6 +138,19 @@ def create_order():
         db.session.add(order)
         db.session.commit()
         
+        # Send email with delivery code
+        try:
+            from services.email_service import send_order_created_email
+            # Get user email
+            user_email = user.email
+            order_data = order.to_dict()
+            # to_dict doesn't include delivery_code for security in API, but we need it for email
+            order_data['delivery_code'] = delivery_code
+            
+            send_order_created_email(user_email, order_data)
+        except Exception as e:
+            print(f"Failed to send email: {e}")
+        
         # Create notification
         try:
             create_notification(
