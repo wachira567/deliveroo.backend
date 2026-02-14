@@ -115,6 +115,9 @@ def update_location(order_id):
 @courier_bp.route('/courier/orders/<int:order_id>/status', methods=['PATCH'])
 @jwt_required()
 def update_order_status(order_id):
+    import logging
+    logger = logging.getLogger(__name__)
+
     current_user_id = get_jwt_identity()
     try:
         current_user_id = int(current_user_id)
@@ -136,6 +139,8 @@ def update_order_status(order_id):
     data = request.get_json()
     new_status = data.get('status')
     
+    logger.info(f"Courier {current_user_id} attempting to update order {order_id} from {order.status} to {new_status}")
+
     if not new_status:
         return jsonify({"error": "Status is required"}), 400
     
@@ -150,6 +155,7 @@ def update_order_status(order_id):
     
     # Idempotency check: If status is already set, return success
     if order.status == new_status:
+         logger.info(f"Order {order_id} is already {new_status}. Returning success.")
          return jsonify({
             "message": "Status updated successfully",
             "order": {
@@ -161,8 +167,10 @@ def update_order_status(order_id):
         }), 200
 
     if new_status not in valid_transitions.get(order.status, []):
+        error_msg = f"Invalid status transition from {order.status} to {new_status}"
+        logger.warning(f"Order {order_id}: {error_msg}")
         return jsonify({
-            "error": f"Invalid status transition from {order.status} to {new_status}"
+            "error": error_msg
         }), 400
     
     old_status = order.status
@@ -176,20 +184,30 @@ def update_order_status(order_id):
     
     try:
         db.session.commit()
+        logger.info(f"Order {order_id} status updated to {new_status}")
         
         # Send notification and email
-        create_notification(
-            user_id=order.customer_id,
-            order_id=order.id,
-            message=f"Your order #{order.id} status changed to {new_status}",
-            type="status_update"
-        )
-        
-        if order.customer:
-            send_order_status_email(order.customer.email, order.id, new_status, order.parcel_name)
+        try:
+            create_notification(
+                user_id=order.customer_id,
+                order_id=order.id,
+                message=f"Your order #{order.id} status changed to {new_status}",
+                type="status_update"
+            )
+            
+            if order.customer:
+                email_sent = send_order_status_email(order.customer.email, order.id, new_status, order.parcel_name)
+                if email_sent:
+                    logger.info(f"Status email sent to {order.customer.email}")
+                else:
+                    logger.error(f"Failed to send status email to {order.customer.email}")
+        except Exception as e:
+            logger.error(f"Notification/Email error in update_order_status: {e}")
+            # Don't fail the request
         
     except Exception as e:
         db.session.rollback()
+        logger.error(f"Database error in update_order_status: {e}")
         return jsonify({"error": str(e)}), 400
     
     return jsonify({

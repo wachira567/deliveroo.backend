@@ -509,15 +509,28 @@ def complete_delivery(order_id):
             # Get customer email
             customer = User.query.get(order.customer_id)
             if customer and customer.email:
-                send_order_delivered_email(customer.email, {
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Sending delivery email to {customer.email}")
+                
+                email_sent = send_order_delivered_email(customer.email, {
                     "id": order.id,
                     "parcel_name": order.parcel_name
                 })
+                
+                if email_sent:
+                    logger.info("Delivery email sent successfully")
+                else:
+                    logger.error("Failed to send delivery email")
         except Exception as e:
-            print(f"Email error: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Email error in complete_delivery: {e}")
         
     except Exception as e:
-        print(f"Notification error: {e}")
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Notification error in complete_delivery: {e}")
 
     return jsonify({
         "message": "Order delivered successfully",
