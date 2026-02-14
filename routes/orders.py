@@ -264,6 +264,7 @@ def get_order_detail(order_id):
         "created_at": order.created_at.isoformat() if order.created_at else None,
         "picked_up_at": order.picked_up_at.isoformat() if order.picked_up_at else None,
         "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None,
+        "payment_status": "completed" if any(p.status == "completed" for p in order.payments) else (order.payments[-1].status if order.payments else "pending"),
         "customer": {
             "id": order.customer.id,
             "full_name": order.customer.full_name,
