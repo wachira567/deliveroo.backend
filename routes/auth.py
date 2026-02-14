@@ -69,7 +69,7 @@ def register():
             frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
             
             # Create verification token
-            verification_token = create_access_token(identity=user.id, additional_claims={"type": "verification"})
+            verification_token = create_access_token(identity=str(user.id), additional_claims={"type": "verification"})
             verification_link = f"{frontend_url}/verify-email?token={verification_token}"
             
             send_email(
@@ -116,8 +116,8 @@ def login():
         return jsonify({"error": "Please verify your email address first"}), 403
     
     # Create tokens
-    access_token = create_access_token(identity=user.id)
-    refresh_token = create_refresh_token(identity=user.id)
+    access_token = create_access_token(identity=str(user.id))
+    refresh_token = create_refresh_token(identity=str(user.id))
     
     return jsonify({
         "message": "Login successful",
@@ -174,7 +174,7 @@ def forgot_password():
         frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
         
         # Create reset token (short lived)
-        reset_token = create_access_token(identity=user.id, additional_claims={"type": "reset"}, expires_delta=False) 
+        reset_token = create_access_token(identity=str(user.id), additional_claims={"type": "reset"}, expires_delta=False) 
         # Using default expiration or set specifically
         
         reset_link = f"{frontend_url}/reset-password?token={reset_token}"
@@ -246,7 +246,7 @@ def get_current_user():
 @jwt_required(refresh=True)
 def refresh_token():
     current_user_id = get_jwt_identity()
-    access_token = create_access_token(identity=current_user_id)
+    access_token = create_access_token(identity=str(current_user_id))
     
     return jsonify({
         "access_token": access_token
