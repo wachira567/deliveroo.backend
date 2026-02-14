@@ -358,9 +358,7 @@ def get_couriers():
             "active_orders": active_orders,
             "created_at": courier.created_at.isoformat() if courier.created_at else None
         })
-    
-        })
-    
+
     return jsonify({
         "couriers": result,
         "total": len(result)
