@@ -10,8 +10,10 @@ orders_bp = Blueprint('orders', __name__)
 @orders_bp.route('/orders', methods=['POST'])
 @jwt_required()
 def create_order():
+    print("create_order called")
     try:
         current_user_id = get_jwt_identity()
+        print(f"create_order user_id: {current_user_id}")
         # Ensure ID is integer for DB
         try:
             current_user_id = int(current_user_id)
@@ -63,6 +65,7 @@ def create_order():
             weight_category = "xlarge"
         
         # Geocode addresses
+        print("Geocoding addresses...")
         pickup_lat, pickup_lng = None, None
         destination_lat, destination_lng = None, None
         
@@ -71,12 +74,14 @@ def create_order():
             pickup_lng = data['pickup_lng']
         else:
             pickup_lat, pickup_lng = get_geocode(data['pickup_address'])
+        print(f"Pickup geocode result: {pickup_lat}, {pickup_lng}")
         
         if data.get('destination_lat') and data.get('destination_lng'):
             destination_lat = data['destination_lat']
             destination_lng = data['destination_lng']
         else:
             destination_lat, destination_lng = get_geocode(data['destination_address'])
+        print(f"Destination geocode result: {destination_lat}, {destination_lng}")
         
         # Get distance if both coordinates are available
         distance = None
@@ -99,9 +104,11 @@ def create_order():
                 distance = 5.0
         else:
              distance = 5.0 # Default if geocoding fails
+        print(f"Calculated distance: {distance}")
         
         # Calculate price
         price = ParcelOrder.calculate_price(weight, distance)
+        print(f"Calculated price: {price}")
     
         # Generate 6-digit delivery code
         import random
@@ -110,12 +117,15 @@ def create_order():
         # Handle Image Upload
         parcel_image_url = None
         if request.files and 'parcel_image' in request.files:
+            print("Processing image upload...")
             file = request.files['parcel_image']
             if file and file.filename != '':
                 from services.cloudinary_service import upload_image
                 parcel_image_url = upload_image(file)
+                print(f"Image uploaded to: {parcel_image_url}")
         
         # Create order
+        print("Creating order object...")
         order = ParcelOrder(
             customer_id=current_user_id,
             parcel_name=data['parcel_name'],
@@ -135,8 +145,11 @@ def create_order():
             delivery_code=delivery_code
         )
         
+        print("Adding to DB session...")
         db.session.add(order)
+        print("Committing to DB...")
         db.session.commit()
+        print(f"Order committed with ID: {order.id}")
         
         # Send email with delivery code
         try:
@@ -182,7 +195,8 @@ def create_order():
 
     except Exception as e:
         import traceback
-        traceback.print_exc()
+        print("ERROR IN CREATE_ORDER:")
+        print(traceback.format_exc())
         db.session.rollback()
         return jsonify({
             "error": "Internal server error",
