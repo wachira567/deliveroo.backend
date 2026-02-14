@@ -6,6 +6,7 @@ from services.mpesa_service import initiate_stk_push
 
 from services.email_service import send_payment_success_email
 from utils.pdf import generate_receipt_pdf
+from utils import create_notification
 
 payments_bp = Blueprint('payments', __name__)
 
