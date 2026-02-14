@@ -17,8 +17,10 @@ def send_email(to_email, subject, html_content, attachments=None):
             
         resend.api_key = api_key
 
+        sender = os.environ.get("EMAIL_SENDER", "Deliveroo <onboarding@resend.dev>")
+
         params = {
-            "from": "Deliveroo <onboarding@resend.dev>", 
+            "from": sender, 
             "to": [to_email],
             "subject": subject,
             "html": html_content,
