@@ -2,7 +2,8 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import ParcelOrder, User, Notification
 from extensions import db
-from utils import create_notification, send_order_status_email
+from utils import create_notification
+from services.email_service import send_order_status_email
 from datetime import datetime
 
 courier_bp = Blueprint('courier', __name__)
@@ -160,7 +161,8 @@ def update_order_status(order_id):
             type="status_update"
         )
         
-        send_order_status_email(order.customer, order, new_status)
+        if order.customer:
+            send_order_status_email(order.customer.email, order.id, new_status, order.parcel_name)
         
     except Exception as e:
         db.session.rollback()

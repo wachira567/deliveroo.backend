@@ -90,3 +90,30 @@ def send_order_created_email(user_email, order_details):
     </div>
     """
     return send_email(user_email, subject, html_content)
+
+
+def send_order_status_email(user_email, order_id, status, parcel_name):
+    status_messages = {
+        "assigned": "has been assigned a courier.",
+        "picked_up": "has been picked up by the courier.",
+        "in_transit": "is on its way!",
+        "delivered": "has been delivered successfully!",
+        "cancelled": "has been cancelled."
+    }
+    
+    status_message = status_messages.get(status, f"status has been updated to: {status}")
+    
+    subject = f"Order #{order_id} Update: {status.replace('_', ' ').title()}"
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+        <h2>Order Status Update</h2>
+        <p>Your order <strong>#{order_id}</strong> ({parcel_name}) {status_message}</p>
+        
+        <div style="margin-top: 20px;">
+            <p>Current Status: <strong style="text-transform: uppercase; color: #f97316;">{status.replace('_', ' ')}</strong></p>
+        </div>
+        
+        <a href="{os.environ.get('FRONTEND_URL', 'http://localhost:5173')}/orders/{order_id}" style="background-color: #f97316; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px;">Track Order</a>
+    </div>
+    """
+    return send_email(user_email, subject, html_content)
