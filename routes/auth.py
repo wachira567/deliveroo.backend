@@ -246,6 +246,26 @@ def run_migrations():
             "traceback": traceback.format_exc()
         }), 500
 
+@auth_bp.route('/debug/verify', methods=['POST'])
+def debug_verify_user():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        
+        if not email:
+            return jsonify({"error": "Email required"}), 400
+            
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+            
+        user.is_verified = True
+        db.session.commit()
+        
+        return jsonify({"message": f"User {email} manually verified"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 @auth_bp.route('/me', methods=['GET'])
