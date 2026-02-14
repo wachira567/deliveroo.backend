@@ -89,6 +89,7 @@ def get_all_orders():
             "price": order.price,
             "status": order.status,
             "created_at": order.created_at.isoformat() if order.created_at else None,
+            "parcel_image_url": order.parcel_image_url,
             "customer": {
                 "id": order.customer.id,
                 "full_name": order.customer.full_name,
@@ -269,6 +270,7 @@ def get_dashboard():
             "parcel_name": order.parcel_name,
             "status": order.status,
             "price": order.price,
+            "parcel_image_url": order.parcel_image_url,
             "created_at": order.created_at.isoformat() if order.created_at else None,
             "customer_name": order.customer.full_name if order.customer else None,
             "courier_name": order.courier.full_name if order.courier else None
@@ -357,7 +359,125 @@ def get_couriers():
             "created_at": courier.created_at.isoformat() if courier.created_at else None
         })
     
+        })
+    
     return jsonify({
         "couriers": result,
         "total": len(result)
     }), 200
+
+@admin_bp.route('/admin/reports', methods=['GET'])
+@jwt_required()
+def get_reports():
+    current_user_id = get_jwt_identity()
+    
+    user = User.query.get(current_user_id)
+    if not user or user.role != 'admin':
+        return jsonify({"error": "Access denied. Admin only."}), 403
+        
+    from sqlalchemy import func
+    from datetime import datetime, timedelta
+    
+    # 1. Revenue last 30 days
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    
+    # Only count delivered orders for revenue
+    daily_revenue = db.session.query(
+        func.date(ParcelOrder.created_at).label('date'),
+        func.sum(ParcelOrder.price).label('revenue')
+    ).filter(
+        ParcelOrder.created_at >= thirty_days_ago,
+        ParcelOrder.status == 'delivered'
+    ).group_by(
+        func.date(ParcelOrder.created_at)
+    ).all()
+    
+    revenue_chart_data = []
+    # Fill in missing days? For simplicity, just sending what we have
+    for day in daily_revenue:
+        revenue_chart_data.append({
+            "date": str(day.date),
+            "revenue": float(day.revenue) if day.revenue else 0
+        })
+        
+    # 2. Status Distribution
+    status_counts = db.session.query(
+        ParcelOrder.status,
+        func.count(ParcelOrder.id)
+    ).group_by(ParcelOrder.status).all()
+    
+    status_chart_data = []
+    for s in status_counts:
+        status_chart_data.append({
+            "name": s[0],
+            "value": s[1]
+        })
+        
+    # 3. Top Couriers (by completed deliveries)
+    # Using join to get courier names
+    top_couriers = db.session.query(
+        User.full_name,
+        func.count(ParcelOrder.id).label('deliveries')
+    ).join(ParcelOrder, ParcelOrder.courier_id == User.id).filter(
+        User.role == 'courier',
+        ParcelOrder.status == 'delivered'
+    ).group_by(User.id, User.full_name).order_by(func.count(ParcelOrder.id).desc()).limit(5).all()
+    
+    top_couriers_data = []
+    for c in top_couriers:
+        top_couriers_data.append({
+            "name": c.full_name,
+            "deliveries": c.deliveries
+        })
+        
+    return jsonify({
+        "revenue_trends": revenue_chart_data,
+        "status_distribution": status_chart_data,
+        "top_couriers": top_couriers_data
+    }), 200
+
+
+@admin_bp.route('/admin/users/<int:user_id>/role', methods=['PATCH'])
+@jwt_required()
+def change_user_role(user_id):
+    current_user_id = get_jwt_identity()
+    
+    user = User.query.get(current_user_id)
+    if not user or user.role != 'admin':
+        return jsonify({"error": "Access denied. Admin only."}), 403
+    
+    target_user = User.query.get(user_id)
+    if not target_user:
+        return jsonify({"error": "User not found"}), 404
+        
+    if target_user.id == current_user_id:
+        return jsonify({"error": "Cannot change your own role"}), 400
+        
+    data = request.get_json()
+    new_role = data.get('role')
+    
+    valid_roles = ['customer', 'courier', 'admin']
+    if new_role not in valid_roles:
+        return jsonify({"error": "Invalid role"}), 400
+        
+    # Constraint handling: Couriers need vehicle/plate
+    if new_role == 'courier':
+        if not target_user.vehicle_type:
+            target_user.vehicle_type = 'Motorbike' # Default
+        if not target_user.plate_number:
+            target_user.plate_number = 'PENDING' # Placeholder
+            
+    target_user.role = new_role
+            
+    try:
+        db.session.commit()
+        return jsonify({
+            "message": f"User role updated to {new_role}",
+            "user": {
+                "id": target_user.id,
+                "role": target_user.role
+            }
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
