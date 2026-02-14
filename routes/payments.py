@@ -139,5 +139,7 @@ def callback():
             
         return jsonify({"message": "Callback processed"}), 200
     except Exception as e:
+         import traceback
+         traceback.print_exc()
          print(f"Error processing callback: {e}")
          return jsonify({"error": "Processing failed"}), 500
