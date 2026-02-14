@@ -105,7 +105,7 @@ def callback():
                     user_id=order.customer_id,
                     order_id=order.id,
                     message=f"Payment of KES {payment.amount} received successfully.",
-                    type="payment_received"
+                    type_="payment_received"
                 )
                 
                 # Generate PDF
@@ -121,6 +121,8 @@ def callback():
                     )
                 except Exception as e:
                     print(f"Error generating PDF or sending email: {e}")
+                    import traceback
+                    traceback.print_exc()
 
         else:
             # Payment Failed
@@ -133,7 +135,7 @@ def callback():
                     user_id=order.customer_id,
                     order_id=order.id,
                     message=f"Payment failed. Reason: {body.get('ResultDesc')}",
-                    type="payment_failed"
+                    type_="payment_failed"
                 )
             
         db.session.commit()
