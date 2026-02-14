@@ -10,116 +10,146 @@ orders_bp = Blueprint('orders', __name__)
 @orders_bp.route('/orders', methods=['POST'])
 @jwt_required()
 def create_order():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    
-    if user.role != 'customer':
-        return jsonify({"error": "Only customers can create orders"}), 403
-    
-    data = request.get_json()
-    
-    # Validate required fields
-    required_fields = ['parcel_name', 'weight', 'pickup_address', 'destination_address']
-    for field in required_fields:
-        if not data.get(field):
-            return jsonify({"error": f"{field} is required"}), 400
-    
-    # Validate weight
     try:
-        weight = float(data['weight'])
-        if weight <= 0:
-            return jsonify({"error": "Weight must be positive"}), 400
-    except (ValueError, TypeError):
-        return jsonify({"error": "Invalid weight"}), 400
-    
-    # Determine weight category
-    if weight <= 1:
-        weight_category = "small"
-    elif weight <= 5:
-        weight_category = "medium"
-    elif weight <= 10:
-        weight_category = "large"
-    else:
-        weight_category = "xlarge"
-    
-    # Geocode addresses
-    pickup_lat, pickup_lng = None, None
-    destination_lat, destination_lng = None, None
-    
-    if data.get('pickup_lat') and data.get('pickup_lng'):
-        pickup_lat = data['pickup_lat']
-        pickup_lng = data['pickup_lng']
-    else:
-        pickup_lat, pickup_lng = get_geocode(data['pickup_address'])
-    
-    if data.get('destination_lat') and data.get('destination_lng'):
-        destination_lat = data['destination_lat']
-        destination_lng = data['destination_lng']
-    else:
-        destination_lat, destination_lng = get_geocode(data['destination_address'])
-    
-    # Get distance if both coordinates are available
-    distance = None
-    if pickup_lat and pickup_lng and destination_lat and destination_lng:
-        distance, _ = get_distance_matrix(
-            (pickup_lat, pickup_lng),
-            (destination_lat, destination_lng)
+        current_user_id = get_jwt_identity()
+        # Ensure ID is integer for DB
+        try:
+            current_user_id = int(current_user_id)
+        except ValueError:
+             return jsonify({"error": "Invalid user identity"}), 401
+             
+        user = User.query.get(current_user_id)
+        
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        if user.role != 'customer':
+            return jsonify({"error": "Only customers can create orders"}), 403
+        
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['parcel_name', 'weight', 'pickup_address', 'destination_address']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({"error": f"{field} is required"}), 400
+        
+        # Validate weight
+        try:
+            weight = float(data['weight'])
+            if weight <= 0:
+                return jsonify({"error": "Weight must be positive"}), 400
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid weight"}), 400
+        
+        # Determine weight category
+        if weight <= 1:
+            weight_category = "small"
+        elif weight <= 5:
+            weight_category = "medium"
+        elif weight <= 10:
+            weight_category = "large"
+        else:
+            weight_category = "xlarge"
+        
+        # Geocode addresses
+        pickup_lat, pickup_lng = None, None
+        destination_lat, destination_lng = None, None
+        
+        if data.get('pickup_lat') and data.get('pickup_lng'):
+            pickup_lat = data['pickup_lat']
+            pickup_lng = data['pickup_lng']
+        else:
+            pickup_lat, pickup_lng = get_geocode(data['pickup_address'])
+        
+        if data.get('destination_lat') and data.get('destination_lng'):
+            destination_lat = data['destination_lat']
+            destination_lng = data['destination_lng']
+        else:
+            destination_lat, destination_lng = get_geocode(data['destination_address'])
+        
+        # Get distance if both coordinates are available
+        distance = None
+        if pickup_lat and pickup_lng and destination_lat and destination_lng:
+            # Check for same location
+            if (pickup_lat == destination_lat) and (pickup_lng == destination_lng):
+                 distance = 0
+            else:
+                 try:
+                    distance, _ = get_distance_matrix(
+                        (pickup_lat, pickup_lng),
+                        (destination_lat, destination_lng)
+                    )
+                 except Exception as e:
+                     print(f"Distance matrix error: {e}")
+                     # proceed with default
+            
+            # Default distance if API fails
+            if not distance:
+                distance = 5.0
+        else:
+             distance = 5.0 # Default if geocoding fails
+        
+        # Calculate price
+        price = ParcelOrder.calculate_price(weight, distance)
+        
+        # Create order
+        order = ParcelOrder(
+            customer_id=current_user_id,
+            parcel_name=data['parcel_name'],
+            description=data.get('description'),
+            weight=weight,
+            weight_category=weight_category,
+            pickup_address=data['pickup_address'],
+            pickup_lat=pickup_lat,
+            pickup_lng=pickup_lng,
+            destination_address=data['destination_address'],
+            destination_lat=destination_lat,
+            destination_lng=destination_lng,
+            distance=distance,
+            price=price,
+            status="pending"
         )
-        # Default distance if API fails
-        if not distance:
-            distance = 5.0
-    
-    # Calculate price
-    price = ParcelOrder.calculate_price(weight, distance or 5.0)
-    
-    # Create order
-    order = ParcelOrder(
-        customer_id=current_user_id,
-        parcel_name=data['parcel_name'],
-        description=data.get('description'),
-        weight=weight,
-        weight_category=weight_category,
-        pickup_address=data['pickup_address'],
-        pickup_lat=pickup_lat,
-        pickup_lng=pickup_lng,
-        destination_address=data['destination_address'],
-        destination_lat=destination_lat,
-        destination_lng=destination_lng,
-        distance=distance,
-        price=price,
-        status="pending"
-    )
-    
-    try:
+        
         db.session.add(order)
         db.session.commit()
+        
+        # Create notification
+        try:
+            create_notification(
+                user_id=current_user_id,
+                order_id=order.id,
+                message=f"Order #{order.id} created successfully",
+                type="order_created"
+            )
+        except Exception as e:
+            print(f"Notification error: {e}")
+            # Don't fail request if notification fails
+        
+        return jsonify({
+            "message": "Order created successfully",
+            "order": {
+                "id": order.id,
+                "parcel_name": order.parcel_name,
+                "weight": order.weight,
+                "weight_category": order.weight_category,
+                "pickup_address": order.pickup_address,
+                "destination_address": order.destination_address,
+                "distance": order.distance,
+                "price": order.price,
+                "status": order.status,
+                "created_at": order.created_at.isoformat() if order.created_at else None
+            }
+        }), 201
+
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         db.session.rollback()
-        return jsonify({"error": str(e)}), 400
-    
-    # Create notification
-    create_notification(
-        user_id=current_user_id,
-        order_id=order.id,
-        message=f"Order #{order.id} created successfully",
-        type="order_created"
-    )
-    
-    return jsonify({
-        "message": "Order created successfully",
-        "order": {
-            "id": order.id,
-            "parcel_name": order.parcel_name,
-            "weight": order.weight,
-            "weight_category": order.weight_category,
-            "pickup_address": order.pickup_address,
-            "destination_address": order.destination_address,
-            "distance": order.distance,
-            "price": order.price,
-            "status": order.status,
-            "created_at": order.created_at.isoformat() if order.created_at else None
-        }
-    }), 201
+        return jsonify({
+            "error": "Internal server error",
+            "details": str(e)
+        }), 500
 
 
 @orders_bp.route('/orders', methods=['GET'])
