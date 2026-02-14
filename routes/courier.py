@@ -13,6 +13,10 @@ courier_bp = Blueprint('courier', __name__)
 @jwt_required()
 def get_assigned_orders():
     current_user_id = get_jwt_identity()
+    try:
+        current_user_id = int(current_user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user identity"}), 401
     
     user = User.query.get(current_user_id)
     if user.role != 'courier':
@@ -61,6 +65,10 @@ def get_assigned_orders():
 @jwt_required()
 def update_location(order_id):
     current_user_id = get_jwt_identity()
+    try:
+        current_user_id = int(current_user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user identity"}), 401
     
     user = User.query.get(current_user_id)
     if user.role != 'courier':
@@ -108,6 +116,10 @@ def update_location(order_id):
 @jwt_required()
 def update_order_status(order_id):
     current_user_id = get_jwt_identity()
+    try:
+        current_user_id = int(current_user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user identity"}), 401
     
     user = User.query.get(current_user_id)
     if user.role != 'courier':
@@ -183,6 +195,10 @@ def update_order_status(order_id):
 @jwt_required()
 def get_courier_stats():
     current_user_id = get_jwt_identity()
+    try:
+        current_user_id = int(current_user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user identity"}), 401
     
     user = User.query.get(current_user_id)
     if user.role != 'courier':
