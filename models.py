@@ -28,7 +28,9 @@ class User(db.Model):
 
     vehicle_type = db.Column(db.String(50), nullable=True)
     plate_number = db.Column(db.String(20), nullable=True)
+    plate_number = db.Column(db.String(20), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
+    is_verified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     @validates("plate_number")
