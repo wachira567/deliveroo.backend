@@ -31,11 +31,24 @@ def initiate_stk_push(phone_number, amount, order_id):
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     password = base64.b64encode((business_short_code + passkey + timestamp).encode()).decode()
     
-    # Format phone number to 254...
-    if phone_number.startswith("0"):
-        phone_number = "254" + phone_number[1:]
-    elif phone_number.startswith("+"):
-        phone_number = phone_number.replace("+", "")
+    # Format phone number to 254... using phonenumbers library for robustness
+    try:
+        import phonenumbers
+        parsed_phone = phonenumbers.parse(phone_number, "KE") # Default to Kenya if no region
+        if not phonenumbers.is_valid_number(parsed_phone):
+             # Fallback to simple formatting if invalid but maybe usable?
+             # But better to error or try simple logic
+             pass
+        else:
+             # Format to E.164 (e.g. +254712345678) then remove +
+             phone_number = phonenumbers.format_number(parsed_phone, phonenumbers.PhoneNumberFormat.E164).replace("+", "")
+    except Exception as e:
+        print(f"Phone formatting error: {e}")
+        # Fallback to manual
+        if phone_number.startswith("0"):
+            phone_number = "254" + phone_number[1:]
+        elif phone_number.startswith("+"):
+            phone_number = phone_number.replace("+", "")
         
     payload = {
         "BusinessShortCode": business_short_code,
