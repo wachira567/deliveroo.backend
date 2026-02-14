@@ -137,8 +137,8 @@ def assign_courier(order_id):
     if not courier:
         return jsonify({"error": "Active courier not found"}), 404
     
-    if order.status != 'pending':
-        return jsonify({"error": "Can only assign courier to pending orders"}), 400
+    if order.status not in ['pending', 'assigned']:
+        return jsonify({"error": f"Can only assign courier to pending or assigned orders (Current status: {order.status})"}), 400
     
     order.courier_id = courier_id
     order.status = 'assigned'
