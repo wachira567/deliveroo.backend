@@ -148,6 +148,18 @@ def update_order_status(order_id):
         "cancelled": []
     }
     
+    # Idempotency check: If status is already set, return success
+    if order.status == new_status:
+         return jsonify({
+            "message": "Status updated successfully",
+            "order": {
+                "id": order.id,
+                "status": order.status,
+                "picked_up_at": order.picked_up_at.isoformat() if order.picked_up_at else None,
+                "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
+            }
+        }), 200
+
     if new_status not in valid_transitions.get(order.status, []):
         return jsonify({
             "error": f"Invalid status transition from {order.status} to {new_status}"
