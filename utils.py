@@ -23,12 +23,9 @@ def get_distance_matrix(origin, destination):
         data = response.json()
         
         if data.get("status") == "OK" and data["rows"][0]["elements"][0]["status"] == "OK":
-            element = data["rows"][0]["elements"][0]
-            distance_text = element["distance"]["text"]
-            duration_text = element["duration"]["text"]
-            
-            # Convert distance to km (extract number from string like "5.2 km")
-            distance_km = float(distance_text.replace(" km", "").replace(",", "."))
+            # Use value (meters) for accuracy
+            distance_meters = element["distance"]["value"]
+            distance_km = distance_meters / 1000.0
             
             return distance_km, duration_text
         
@@ -36,6 +33,18 @@ def get_distance_matrix(origin, destination):
     except Exception as e:
         print(f"Error getting distance: {e}")
         return None, None
+
+
+def calculate_delivery_price(distance_km):
+    """Calculate delivery price based on distance (1 KSH per km)"""
+    if distance_km is None:
+        return 0
+    
+    rate_per_km = 1.0
+    price = distance_km * rate_per_km
+    
+    # specific requirement: "Lets set the fee at 1ksh per kilometre"
+    return round(price, 2)
 
 
 def get_geocode(address):

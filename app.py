@@ -14,8 +14,8 @@ def create_app(config=None):
     app = Flask(__name__)
     
     # Configuration
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
-    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key')
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///deliveroo.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MAIL_SERVER'] = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
@@ -46,6 +46,9 @@ def create_app(config=None):
     app.register_blueprint(orders_bp, url_prefix='/api')
     app.register_blueprint(courier_bp, url_prefix='/api')
     app.register_blueprint(admin_bp, url_prefix='/api')
+    
+    from routes.payments import payments_bp
+    app.register_blueprint(payments_bp, url_prefix='/api/payments')
     
     # Create tables
     with app.app_context():

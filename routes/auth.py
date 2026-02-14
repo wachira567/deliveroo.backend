@@ -57,6 +57,18 @@ def register():
     try:
         db.session.add(user)
         db.session.commit()
+        
+        # Send welcome email
+        try:
+            from services.email_service import send_magic_link
+            import os
+            frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+            magic_link = f"{frontend_url}/login"
+            send_magic_link(user.email, magic_link)
+        except Exception as e:
+            print(f"Failed to send email: {e}")
+            # Continue even if email fails
+            
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
