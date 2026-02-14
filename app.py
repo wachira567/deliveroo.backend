@@ -57,6 +57,10 @@ def create_app(config=None):
     from routes.courier import courier_bp
     from routes.admin import admin_bp
     
+    @app.route('/')
+    def index():
+        return jsonify({"status": "healthy", "service": "Deliveroo Backend"}), 200
+
     app.register_blueprint(auth_bp, url_prefix='/api')
     app.register_blueprint(orders_bp, url_prefix='/api')
     app.register_blueprint(courier_bp, url_prefix='/api')
