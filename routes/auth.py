@@ -29,13 +29,16 @@ def register():
         try:
             # Parse and validate phone number
             import phonenumbers
-            parsed = phonenumbers.parse(data['phone'], None)
+            # Default to KE if no country code provided
+            parsed = phonenumbers.parse(data['phone'], "KE")
             if not phonenumbers.is_valid_number(parsed):
                 return jsonify({"error": "Enter a valid phone number"}), 400
-            if "+" not in data['phone']:
-                return jsonify({"error": "Phone number must include country code"}), 400
+            
+            # Auto-format to E.164
+            data['phone'] = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
+            
         except Exception as e:
-            return jsonify({"error": str(e)}), 400
+            return jsonify({"error": f"Invalid phone number: {str(e)}"}), 400
     
     # Validate vehicle for courier
     role = data.get('role', 'customer')
