@@ -61,6 +61,26 @@ def create_app(config=None):
     from routes.payments import payments_bp
     app.register_blueprint(payments_bp, url_prefix='/api/payments')
 
+    # Debug logging
+    @app.before_request
+    def log_request_info():
+        import logging
+        from flask import request
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        auth_header = request.headers.get('Authorization')
+        logger.info(f"Path: {request.path} | Method: {request.method} | Auth Header: {auth_header}")
+        
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            try:
+                from flask_jwt_extended import decode_token
+                decoded = decode_token(token)
+                logger.info(f"Decoded Token: {decoded}")
+            except Exception as e:
+                logger.error(f"Token Decode Error: {e}")
+
     # JWT Error handlers
     from flask import jsonify
     
