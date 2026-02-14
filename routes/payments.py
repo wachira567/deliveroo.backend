@@ -39,12 +39,23 @@ def pay():
         return jsonify({"error": "Phone number is required"}), 400
         
     # Initiate STK Push
-    response = initiate_stk_push(phone_number, order.price, order.id)
+    response = initiate_stk_push(phone_number, int(order.price), order.id)
+    
+    print(f"STK Push Response in Route: {response}")
     
     if "error" in response:
         return jsonify({"error": response["error"]}), 500
         
+    if "errorCode" in response:
+        return jsonify({"error": response.get("errorMessage", "M-Pesa API Error")}), 400
+        
+    if response.get("ResponseCode") != "0":
+        return jsonify({"error": response.get("CustomerMessage", "STK Push failed")}), 400
+        
     checkout_request_id = response.get("CheckoutRequestID")
+    
+    if not checkout_request_id:
+        return jsonify({"error": "Invalid response from M-Pesa"}), 500
     
     # Check if payment already exists for this order (retry?)
     # For now, create new or update
