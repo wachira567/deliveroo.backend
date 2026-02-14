@@ -242,6 +242,50 @@ def get_current_user():
     }), 200
 
 
+@auth_bp.route('/me', methods=['PUT'])
+@jwt_required()
+def update_current_user():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+        
+    data = request.get_json()
+    
+    # Allowed fields
+    if 'full_name' in data:
+        user.full_name = data['full_name']
+    if 'phone' in data:
+        # Basic validation could go here
+        user.phone = data['phone']
+    
+    if user.role == 'courier':
+        if 'vehicle_type' in data:
+            user.vehicle_type = data['vehicle_type']
+        if 'plate_number' in data:
+            user.plate_number = data['plate_number']
+            
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+        
+    return jsonify({
+        "message": "Profile updated successfully",
+        "user": {
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "phone": user.phone,
+            "role": user.role,
+            "vehicle_type": user.vehicle_type,
+            "plate_number": user.plate_number
+        }
+    }), 200
+
+
 @auth_bp.route('/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh_token():
