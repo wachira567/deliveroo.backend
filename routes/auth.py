@@ -85,7 +85,9 @@ def register():
                 """
             )
         except Exception as e:
-            print(f"Failed to send email: {e}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send email: {e}")
             # Consider rollback if email critical? For now log error.
             
     except Exception as e:

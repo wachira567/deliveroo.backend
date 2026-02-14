@@ -7,9 +7,12 @@ def send_email(to_email, subject, html_content, attachments=None):
     Sends an email using Resend API.
     """
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+        
         api_key = os.environ.get("RESEND_API_KEY")
         if not api_key:
-            print("RESEND_API_KEY not found in environment variables.")
+            logger.error("RESEND_API_KEY not found in environment variables.")
             return False
             
         resend.api_key = api_key
@@ -25,10 +28,10 @@ def send_email(to_email, subject, html_content, attachments=None):
             params["attachments"] = attachments
 
         email = resend.Emails.send(params)
-        print(f"Email sent successfully: {email}")
+        logger.info(f"Email sent successfully: {email}")
         return True
     except Exception as e:
-        print(f"Failed to send email: {e}")
+        logger.error(f"Failed to send email: {e}")
         return False
 
 def send_magic_link(user_email, magic_link_url):
