@@ -6,7 +6,7 @@ Flask-Migrate==4.0.5
 Flask-Mail==0.9.1
 Flask-CORS==4.0.0
 python-dotenv==1.0.0
-psycopg2-binary==2.9.9
+psycopg2==2.9.9
 phonenumbers==8.13.25
 requests==2.31.0
 pytest==7.4.3
