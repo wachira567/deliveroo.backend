@@ -503,8 +503,18 @@ def complete_delivery(order_id):
             type_="order_delivered"
         )
         
-        # Send email (optional, if we have email service ready for this)
-        # send_order_delivered_email(...)
+        # Send email
+        try:
+            from services.email_service import send_order_delivered_email
+            # Get customer email
+            customer = User.query.get(order.customer_id)
+            if customer and customer.email:
+                send_order_delivered_email(customer.email, {
+                    "id": order.id,
+                    "parcel_name": order.parcel_name
+                })
+        except Exception as e:
+            print(f"Email error: {e}")
         
     except Exception as e:
         print(f"Notification error: {e}")

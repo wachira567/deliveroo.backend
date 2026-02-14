@@ -117,3 +117,35 @@ def send_order_status_email(user_email, order_id, status, parcel_name):
     </div>
     """
     return send_email(user_email, subject, html_content)
+
+def send_order_delivered_email(user_email, order_details):
+    order_id = order_details.get('id')
+    parcel_name = order_details.get('parcel_name')
+    subject = f"Delivered! - Order #{order_id} has arrived"
+    
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #f97316;">Order Delivered!</h1>
+            <p style="font-size: 1.1em;">Your package has arrived safely.</p>
+        </div>
+        
+        <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin-top: 0;">Order Summary</h3>
+            <p><strong>Order ID:</strong> #{order_id}</p>
+            <p><strong>Item:</strong> {parcel_name}</p>
+            <p><strong>Status:</strong> <span style="color: #16a34a; font-weight: bold;">DELIVERED</span></p>
+        </div>
+        
+        <p>We hope you had a great experience with Deliveroo. Thank you for choosing us!</p>
+        
+        <div style="text-align: center; margin-top: 30px;">
+             <a href="{os.environ.get('FRONTEND_URL', 'http://localhost:5173')}/orders/{order_id}" style="background-color: #f97316; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Order Details</a>
+        </div>
+        
+        <p style="margin-top: 40px; font-size: 0.9em; color: #666; text-align: center;">
+            Need help? Contact our support team.
+        </p>
+    </div>
+    """
+    return send_email(user_email, subject, html_content)
