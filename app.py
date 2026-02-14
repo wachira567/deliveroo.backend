@@ -18,6 +18,10 @@ def create_app(config=None):
     app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///deliveroo.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+    }
     app.config['MAIL_SERVER'] = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
     app.config['MAIL_PORT'] = 587
     app.config['MAIL_USE_TLS'] = True
