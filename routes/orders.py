@@ -226,6 +226,11 @@ def get_orders():
 @jwt_required()
 def get_order_detail(order_id):
     current_user_id = get_jwt_identity()
+    try:
+        current_user_id = int(current_user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user identity"}), 401
+
     user = User.query.get(current_user_id)
     
     order = ParcelOrder.query.get(order_id)
@@ -279,6 +284,10 @@ def get_order_detail(order_id):
 @jwt_required()
 def update_destination(order_id):
     current_user_id = get_jwt_identity()
+    try:
+        current_user_id = int(current_user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user identity"}), 401
     
     order = ParcelOrder.query.get(order_id)
     
@@ -353,6 +362,10 @@ def update_destination(order_id):
 @jwt_required()
 def cancel_order(order_id):
     current_user_id = get_jwt_identity()
+    try:
+        current_user_id = int(current_user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user identity"}), 401
     
     order = ParcelOrder.query.get(order_id)
     
