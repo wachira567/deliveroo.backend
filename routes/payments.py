@@ -8,6 +8,11 @@ payments_bp = Blueprint('payments', __name__)
 
 @payments_bp.route('/pay', methods=['POST'])
 @jwt_required()
+from services.email_service import send_payment_success_email
+from utils.pdf import generate_receipt_pdf
+
+@payments_bp.route('/pay', methods=['POST'])
+@jwt_required()
 def pay():
     data = request.get_json()
     order_id = data.get('order_id')
@@ -21,6 +26,11 @@ def pay():
         return jsonify({"error": "Order not found"}), 404
         
     current_user_id = get_jwt_identity()
+    try:
+        current_user_id = int(current_user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user identity"}), 401
+    
     user = User.query.get(current_user_id)
     
     if not phone_number:
@@ -35,19 +45,25 @@ def pay():
     if "error" in response:
         return jsonify({"error": response["error"]}), 500
         
+    checkout_request_id = response.get("CheckoutRequestID")
+    
+    # Check if payment already exists for this order (retry?)
+    # For now, create new or update
+    
     # Create Payment Record
     payment = Payment(
         order_id=order.id,
         amount=order.price,
         payment_method="mpesa",
-        status="pending"
+        status="pending",
+        transaction_id=checkout_request_id # Store CheckoutRequestID temporarily to match callback
     )
     db.session.add(payment)
     db.session.commit()
     
     return jsonify({
         "message": "STK Push initiated successfully",
-        "checkout_request_id": response.get("CheckoutRequestID")
+        "checkout_request_id": checkout_request_id
     }), 200
 
 @payments_bp.route('/callback', methods=['POST'])
@@ -55,24 +71,75 @@ def callback():
     data = request.get_json()
     print(f"M-Pesa Callback: {data}")
     
-    # Process callback
-    # Note: In a real app, you parse the body to get exact status
-    # For now, we assume success or check result code
-    
     try:
         body = data.get("Body", {}).get("stkCallback", {})
         result_code = body.get("ResultCode")
-        # metadata = body.get("CallbackMetadata", {}).get("Item", [])
+        checkout_request_id = body.get("CheckoutRequestID")
         
-        # We need to find the payment by checkout request id if we stored it
-        # or just assume the order is paid
+        payment = Payment.query.filter_by(transaction_id=checkout_request_id).first()
         
+        if not payment:
+            print(f"Payment not found for CheckoutRequestID: {checkout_request_id}")
+            return jsonify({"error": "Payment record not found"}), 404
+            
         if result_code == 0:
             # Payment Successful
-            # In a real scenario, we match CheckoutRequestID to the Payment record
-            pass
+            print(f"Payment Successful for CheckoutRequestID: {checkout_request_id}")
             
-        return jsonify({"message": "Callback received"}), 200
+            # Update Payment
+            payment.status = "completed"
+            
+            # Update Order
+            order = ParcelOrder.query.get(payment.order_id)
+            if order:
+                # order.status = "assigned" # Or keep pending until courier accepts?
+                # Requirement: "money is sent... notification of payment successful"
+                # Let's keep status as pending but maybe add a paid flag? 
+                # Or just rely on payment status. 
+                # User said "successful if it went through all this should update automatically"
+                # For now let's not change order status to 'assigned' automatically unless logic dictates.
+                # But 'pending' usually means 'waiting for courier'.
+                # Let's just create notification.
+                
+                # Payment confirmed notification
+                create_notification(
+                    user_id=order.customer_id,
+                    order_id=order.id,
+                    message=f"Payment of KES {payment.amount} received successfully.",
+                    type="payment_received"
+                )
+                
+                # Generate PDF
+                try:
+                    pdf_buffer = generate_receipt_pdf(order, payment)
+                    
+                    # Send Email
+                    send_payment_success_email(
+                        order.customer.email, 
+                        order.id, 
+                        payment.amount, 
+                        pdf_buffer
+                    )
+                except Exception as e:
+                    print(f"Error generating PDF or sending email: {e}")
+
+        else:
+            # Payment Failed
+            print(f"Payment Failed for CheckoutRequestID: {checkout_request_id}")
+            payment.status = "failed"
+            
+            order = ParcelOrder.query.get(payment.order_id)
+            if order:
+                 create_notification(
+                    user_id=order.customer_id,
+                    order_id=order.id,
+                    message=f"Payment failed. Reason: {body.get('ResultDesc')}",
+                    type="payment_failed"
+                )
+            
+        db.session.commit()
+            
+        return jsonify({"message": "Callback processed"}), 200
     except Exception as e:
          print(f"Error processing callback: {e}")
          return jsonify({"error": "Processing failed"}), 500

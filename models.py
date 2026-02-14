@@ -172,7 +172,8 @@ class ParcelOrder(db.Model):
             "current_lng": self.current_lng,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "picked_up_at": self.picked_up_at.isoformat() if self.picked_up_at else None,
-            "delivered_at": self.delivered_at.isoformat() if self.delivered_at else None
+            "delivered_at": self.delivered_at.isoformat() if self.delivered_at else None,
+            "payment_status": self.payments[-1].status if self.payments else "pending"
         }
 
 

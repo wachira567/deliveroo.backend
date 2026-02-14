@@ -2,7 +2,7 @@ import os
 import resend
 from flask import current_app
 
-def send_email(to_email, subject, html_content):
+def send_email(to_email, subject, html_content, attachments=None):
     """
     Sends an email using Resend API.
     """
@@ -20,6 +20,9 @@ def send_email(to_email, subject, html_content):
             "subject": subject,
             "html": html_content,
         }
+        
+        if attachments:
+            params["attachments"] = attachments
 
         email = resend.Emails.send(params)
         print(f"Email sent successfully: {email}")
@@ -39,3 +42,31 @@ def send_magic_link(user_email, magic_link_url):
     </div>
     """
     return send_email(user_email, subject, html_content)
+
+def send_payment_success_email(user_email, order_id, amount, pdf_buffer):
+    subject = f"Payment Successful - Order #{order_id}"
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2>Payment Received!</h2>
+        <p>Your payment of <strong>KES {amount}</strong> for Order #{order_id} has been successfully received.</p>
+        <p>Please find your receipt attached.</p>
+        <p>Thank you for choosing Deliveroo!</p>
+    </div>
+    """
+    
+    # Check if pdf_buffer is bytes or buffer
+    if hasattr(pdf_buffer, 'getvalue'):
+        content = pdf_buffer.getvalue()
+    else:
+        content = pdf_buffer
+        
+    # Convert to list of integers (bytes) because Resend SDK expects list of ints or bytes
+    # Actually Resend Python SDK expects:
+    # "attachments": [{"filename": "invoice.pdf", "content": list(file_bytes)}]
+    
+    attachments = [{
+        "filename": f"receipt_order_{order_id}.pdf",
+        "content": list(content)
+    }]
+    
+    return send_email(user_email, subject, html_content, attachments)
