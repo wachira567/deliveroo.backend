@@ -4,12 +4,10 @@ from models import Payment, ParcelOrder, User, Notification
 from extensions import db
 from services.mpesa_service import initiate_stk_push
 
-payments_bp = Blueprint('payments', __name__)
-
-@payments_bp.route('/pay', methods=['POST'])
-@jwt_required()
 from services.email_service import send_payment_success_email
 from utils.pdf import generate_receipt_pdf
+
+payments_bp = Blueprint('payments', __name__)
 
 @payments_bp.route('/pay', methods=['POST'])
 @jwt_required()
