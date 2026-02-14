@@ -198,6 +198,7 @@ def get_orders():
             "current_lat": order.current_lat,
             "current_lng": order.current_lng,
             "created_at": order.created_at.isoformat() if order.created_at else None,
+            "payment_status": "completed" if any(p.status == "completed" for p in order.payments) else (order.payments[-1].status if order.payments else "pending"),
             "customer": {
                 "id": order.customer.id,
                 "full_name": order.customer.full_name,
