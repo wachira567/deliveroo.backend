@@ -129,6 +129,10 @@ class ParcelOrder(db.Model):
     current_lat = db.Column(db.Float, nullable=True)
     current_lng = db.Column(db.Float, nullable=True)
     
+    # Verification & Media
+    parcel_image_url = db.Column(db.String(500), nullable=True)
+    delivery_code = db.Column(db.String(10), nullable=True) # OTP for delivery confirmation
+    
     # Timestamps
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
@@ -173,7 +177,9 @@ class ParcelOrder(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "picked_up_at": self.picked_up_at.isoformat() if self.picked_up_at else None,
             "delivered_at": self.delivered_at.isoformat() if self.delivered_at else None,
-            "payment_status": "completed" if any(p.status == "completed" for p in self.payments) else (self.payments[-1].status if self.payments else "pending")
+            "payment_status": "completed" if any(p.status == "completed" for p in self.payments) else (self.payments[-1].status if self.payments else "pending"),
+            "parcel_image_url": self.parcel_image_url
+            # delivery_code is intentionally NOT included here for security, sent via email only or specific endpoint
         }
 
 

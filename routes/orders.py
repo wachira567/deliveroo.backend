@@ -26,7 +26,17 @@ def create_order():
         if user.role != 'customer':
             return jsonify({"error": "Only customers can create orders"}), 403
         
-        data = request.get_json()
+        # Helper to get data regardless of content type
+        if request.content_type.startswith('multipart/form-data'):
+            data = request.form.to_dict()
+            # Convert numeric types from strings
+            if 'weight' in data: data['weight'] = float(data['weight'])
+            if 'pickup_lat' in data: data['pickup_lat'] = float(data['pickup_lat']) if data['pickup_lat'] else None
+            if 'pickup_lng' in data: data['pickup_lng'] = float(data['pickup_lng']) if data['pickup_lng'] else None
+            if 'destination_lat' in data: data['destination_lat'] = float(data['destination_lat']) if data['destination_lat'] else None
+            if 'destination_lng' in data: data['destination_lng'] = float(data['destination_lng']) if data['destination_lng'] else None
+        else:
+            data = request.get_json()
         
         # Validate required fields
         required_fields = ['parcel_name', 'weight', 'pickup_address', 'destination_address']
@@ -92,6 +102,18 @@ def create_order():
         
         # Calculate price
         price = ParcelOrder.calculate_price(weight, distance)
+    
+        # Generate 6-digit delivery code
+        import random
+        delivery_code = str(random.randint(100000, 999999))
+        
+        # Handle Image Upload
+        parcel_image_url = None
+        if request.files and 'parcel_image' in request.files:
+            file = request.files['parcel_image']
+            if file and file.filename != '':
+                from services.cloudinary_service import upload_image
+                parcel_image_url = upload_image(file)
         
         # Create order
         order = ParcelOrder(
@@ -108,7 +130,9 @@ def create_order():
             destination_lng=destination_lng,
             distance=distance,
             price=price,
-            status="pending"
+            status="pending",
+            parcel_image_url=parcel_image_url,
+            delivery_code=delivery_code
         )
         
         db.session.add(order)
@@ -120,7 +144,7 @@ def create_order():
                 user_id=current_user_id,
                 order_id=order.id,
                 message=f"Order #{order.id} created successfully",
-                type="order_created"
+                type_="order_created"
             )
         except Exception as e:
             print(f"Notification error: {e}")
@@ -138,7 +162,8 @@ def create_order():
                 "distance": order.distance,
                 "price": order.price,
                 "status": order.status,
-                "created_at": order.created_at.isoformat() if order.created_at else None
+                "created_at": order.created_at.isoformat() if order.created_at else None,
+                "parcel_image_url": order.parcel_image_url
             }
         }), 201
 
@@ -390,4 +415,70 @@ def cancel_order(order_id):
     
     return jsonify({
         "message": "Order cancelled successfully"
+    }), 200
+
+
+@orders_bp.route('/orders/<int:order_id>/complete', methods=['POST'])
+@jwt_required()
+def complete_delivery(order_id):
+    current_user_id = get_jwt_identity()
+    try:
+        current_user_id = int(current_user_id)
+    except ValueError:
+        return jsonify({"error": "Invalid user identity"}), 401
+    
+    order = ParcelOrder.query.get(order_id)
+    
+    if not order:
+        return jsonify({"error": "Order not found"}), 404
+    
+    # Check if user is the assigned courier (or maybe admin?)
+    if order.courier_id != current_user_id:
+        return jsonify({"error": "Access denied. You are not the assigned courier."}), 403
+    
+    if order.status != 'in_transit':
+        return jsonify({"error": "Order must be in transit to be completed"}), 400
+    
+    data = request.get_json()
+    code = data.get('code')
+    
+    if not code:
+        return jsonify({"error": "Delivery code is required"}), 400
+    
+    # Verify code
+    if str(code).strip() != str(order.delivery_code).strip():
+        return jsonify({"error": "Invalid delivery code"}), 400
+    
+    # Mark as delivered
+    order.status = 'delivered'
+    order.delivered_at = db.func.now()
+    
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+    
+    # Notify customer
+    try:
+        create_notification(
+            user_id=order.customer_id,
+            order_id=order.id,
+            message=f"Order #{order.id} has been delivered successfully!",
+            type_="order_delivered"
+        )
+        
+        # Send email (optional, if we have email service ready for this)
+        # send_order_delivered_email(...)
+        
+    except Exception as e:
+        print(f"Notification error: {e}")
+
+    return jsonify({
+        "message": "Order delivered successfully",
+        "order": {
+            "id": order.id,
+            "status": order.status,
+            "delivered_at": order.delivered_at.isoformat() if order.delivered_at else None
+        }
     }), 200

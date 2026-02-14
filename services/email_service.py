@@ -60,13 +60,33 @@ def send_payment_success_email(user_email, order_id, amount, pdf_buffer):
     else:
         content = pdf_buffer
         
-    # Convert to list of integers (bytes) because Resend SDK expects list of ints or bytes
-    # Actually Resend Python SDK expects:
-    # "attachments": [{"filename": "invoice.pdf", "content": list(file_bytes)}]
-    
     attachments = [{
         "filename": f"receipt_order_{order_id}.pdf",
         "content": list(content)
     }]
     
     return send_email(user_email, subject, html_content, attachments)
+
+def send_order_created_email(user_email, order_details):
+    subject = f"Order #{order_details['id']} Created - Delivery Code Inside"
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+        <h2>Order Created Successfully!</h2>
+        <p>Your order for <strong>{order_details['parcel_name']}</strong> has been created.</p>
+        <p><strong>Tracking ID:</strong> #{order_details['id']}</p>
+        
+        <div style="background-color: #fee2e2; padding: 15px; border-left: 5px solid #dc2626; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0; color: #991b1b; font-weight: bold; text-transform: uppercase;">Security Alert</p>
+            <p style="margin-top: 10px; color: #7f1d1d;">
+                Your Delivery Confirmation Code is: <span style="font-size: 1.5em; font-weight: bold; background: white; padding: 2px 8px; border-radius: 4px; border: 1px solid #fecaca;">{order_details['delivery_code']}</span>
+            </p>
+            <p style="margin-top: 10px; font-size: 0.9em; color: #7f1d1d;">
+                <strong>DO NOT SHARE</strong> this code until the courier physically arrives to deliver your parcel. The courier will ask for this code to complete the delivery.
+            </p>
+        </div>
+
+        <p>We will notify you via email when a courier accepts your order.</p>
+        <a href="http://localhost:5173/orders/{order_details['id']}" style="background-color: #f97316; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 10px;">Track Order</a>
+    </div>
+    """
+    return send_email(user_email, subject, html_content)
