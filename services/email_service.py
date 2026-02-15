@@ -30,7 +30,7 @@ def send_email(to_email, subject, html_content, attachments=None):
             params["attachments"] = attachments
 
         email = resend.Emails.send(params)
-        logger.info(f"Email sent successfully: {email}")
+        logger.info(f"Email sent successfully to {to_email}: {email}")
         return True
     except Exception as e:
         logger.error(f"Failed to send email: {e}")
